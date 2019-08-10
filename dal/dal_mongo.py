@@ -14,7 +14,7 @@ class DalMongo:
     def __init__(self, db_addr: str):
         self.client = MongoClient(db_addr, MongoConfig.MONGO_PORT)
 
-    def is_patient_exits(self, patient_id: int, document_type: str) -> bool:
+    def is_document_exits(self, patient_id: int, document_type: str) -> bool:
         """
         This method checks if the document exists in a specific collection
         :param patient_id:
@@ -26,9 +26,9 @@ class DalMongo:
             return True
         return False
 
-    def insert_document(self, document: dict, document_type: str):
+    def insert_many_documents(self, documents: list, document_type: str):
         collection = self._get_collection(document_type)
-        collection.insert_one(document)
+        collection.insert_one(documents)
 
     def update_document(self, document: dict, document_type: str, patient_id: int) -> bool:
         collection = self._get_collection(document_type)

@@ -7,6 +7,7 @@ PATIENT_DOCUMENT_TYPE = "document"
 MongoAddr = ""
 
 MAIN_LOOP_TIME_INTERVAL = 60
+BULK_NORAMLIZED_DATA_SIZE = 1000
 
 ABBREV_TO_STATE = {'AL': 'Alabama', 'AK': 'Alaska', 'AZ': 'Arizona', 'AR': 'Arkansas', 'CA': 'California',
                    'CO': 'Colorado',

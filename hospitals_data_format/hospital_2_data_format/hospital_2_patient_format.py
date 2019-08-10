@@ -1,6 +1,14 @@
+import datetime
+
 from hospitals_data_format.base_format import BaseFormat
 from hospitals_data_format.invalid_data_error import InvalidDataError
 from config import PatientFormatConfig
+
+PATIENT_DOB_TIME_FORMAT = '%d/%m/%Y'
+UNPARSED_TO_NORMALIZE_DECEASE_STATUS = {
+    "Y": "Active",
+    "N": "Deceased"
+}
 
 
 class Hospital_2PatientFormat(BaseFormat):
@@ -19,13 +27,15 @@ class Hospital_2PatientFormat(BaseFormat):
         self.address_state = unparsed_patient_data["AddressState"]
         self.address_zip_code = unparsed_patient_data["AddressZipCode"]
 
-    def _get_normalized_deceased_status(self):
-        deceased_status = {
-            "Y": "Active",
-            "N": "Deceased"
-        }
+    def _get_normalized_patient_dob(self):
         try:
-            return deceased_status[self.is_patient_deceased]
+            return datetime.datetime.strptime(self.patient_dob, PATIENT_DOB_TIME_FORMAT)
+        except KeyError:
+            raise InvalidDataError(f"Bad date format: {self.patient_dob}")
+
+    def _get_normalized_deceased_status(self):
+        try:
+            return UNPARSED_TO_NORMALIZE_DECEASE_STATUS[self.is_patient_deceased]
         except KeyError:
             raise InvalidDataError(f"Bad decease status: {self.is_patient_deceased}")
 

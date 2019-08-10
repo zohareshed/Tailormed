@@ -46,16 +46,26 @@ class ImportManager:
         :return: True if handled successfully, else False.
         """
         hospital_name, document_type = self._get_hospital_name_and_document_type(patient_document)
+        bulk_normalized_data = []
         with open(patient_document, 'r') as csv_file:
             reader = csv.DictReader(csv_file)
-            for row in reader:
-                try:
-                    normalized_data = self._get_normalized_data(hospital_name.lower(), document_type.lower(), row)
-                    self._insert_to_db(normalized_data, document_type.lower())
-                    return True
-                except Exception as e:
-                    print(str(e))
-                    return False
+            try:
+                for row in reader:
+                    normalized_data = self._get_normalized_data(hospital_name, document_type, row)
+                    if self.dal.is_document_exits(normalized_data["patient_id"], document_type):
+                        self.dal.update_document(normalized_data, document_type, normalized_data["patient_id"])
+                    else:
+                        bulk_normalized_data.append(normalized_data)
+
+                    if len(bulk_normalized_data) >= config.BULK_NORAMLIZED_DATA_SIZE:
+                        self.dal.insert_many_documents(bulk_normalized_data, document_type)
+
+                if len(bulk_normalized_data) > 0:
+                    self.dal.insert_many_documents(bulk_normalized_data, document_type)
+            except Exception as e:
+                print(str(e))
+                return False
+        return True
 
     def _move_and_backup(self, patient_document: str):
         """
@@ -87,23 +97,11 @@ class ImportManager:
         instance = suitable_format_class(unparsed_patient_data)
         return instance.get_normalized_data()
 
-    def _insert_to_db(self, data: dict, document_type: str):
-        """
-        This method takes a patient document, and either inserts it or updates it.
-        :param data: Patient's data.
-        :return:
-        """
-        patient_id = data["patient_id"]
-        if self.dal.is_patient_exits(patient_id, document_type):
-            self.dal.update_document(data, document_type, patient_id)
-        else:
-            self.dal.insert_document(data, document_type)
-
-    def _get_hospital_name_and_document_type(self, document_name) -> tuple:
+    def _get_hospital_name_and_document_type(self, document_name) -> list:
         """
         This method gets the hospital and document type from the document name with regex.
         :param document_name: Document name
         :return:
         """
         re_object = re.search(DOCUMENT_RE, document_name)
-        return re_object.groups()
+        return [group.lower() for group in re_object.groups()]
