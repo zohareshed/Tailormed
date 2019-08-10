@@ -25,6 +25,7 @@ class ImportManager:
     def __init__(self):
         self.ftp_document_worker = FtpDocumentWorker(config.FTP_ROOT_DIRECTORY, config.FTP_DATA_SUFFIX)
         self.dal = DalMongo(config.MongoAddr)
+        self.bulk_data = []
 
     def run(self):
         """
@@ -51,21 +52,32 @@ class ImportManager:
             reader = csv.DictReader(csv_file)
             try:
                 for row in reader:
-                    normalized_data = self._get_normalized_data(hospital_name, document_type, row)
-                    if self.dal.is_document_exits(normalized_data["patient_id"], document_type):
-                        self.dal.update_document(normalized_data, document_type, normalized_data["patient_id"])
-                    else:
-                        bulk_normalized_data.append(normalized_data)
-
-                    if len(bulk_normalized_data) >= config.BULK_NORAMLIZED_DATA_SIZE:
-                        self.dal.insert_many_documents(bulk_normalized_data, document_type)
-
-                if len(bulk_normalized_data) > 0:
+                    self._handle_document(hospital_name, document_type, row)
+                if len(self.bulk_data) > 0:
                     self.dal.insert_many_documents(bulk_normalized_data, document_type)
+                    self.bulk_data.clear()
             except Exception as e:
                 print(str(e))
                 return False
         return True
+
+    def _handle_document(self, hospital_name: str, document_type: str, document: dict):
+        """
+        This method takes a document, updates it if it exists, or inserts it in a bulk insert.
+        :param hospital_name: Hospital name
+        :param document_type: Document type, i.e patient
+        :param document: The alleged document
+        """
+        normalized_data = self._get_normalized_data(hospital_name, document_type, document)
+        patient_id = normalized_data["patient_id"]
+        if self.dal.is_document_exits(patient_id, document_type):
+            self.dal.update_document(normalized_data, document_type, patient_id)
+        else:
+            self.bulk_data.append(normalized_data)
+
+        if len(self.bulk_data) >= config.BULK_NORAMLIZED_DATA_SIZE:
+            self.dal.insert_many_documents(self.bulk_data, document_type)
+            self.bulk_data.clear()
 
     def _move_and_backup(self, patient_document: str):
         """
